@@ -1,2 +1,1 @@
-.\venv\Scripts\activate
-python .\src\bot.py
+call .\venv\Scripts\activate && python .\src\bot.py
