@@ -7,6 +7,12 @@ from nonebot import logger
 import base64
 
 def read_file(file_path):
+    """
+    读取文件内容并返回字节数据。
+    
+    :param file_path: 文件路径
+    :return: 文件内容的字节数据，如果文件不存在或读取失败，则返回 None。
+    """
     try:
         with open(file_path, 'rb') as file:
             file_content = file.read()
@@ -19,6 +25,12 @@ def read_file(file_path):
         return None
     
 def read_file_as_base64(file_path):
+    """
+    读取文件并将其内容转换为 Base64 编码的字符串。
+    
+    :param file_path: 文件路径
+    :return: Base64 编码的字符串，如果文件不存在或读取失败，则返回 None。
+    """
     try:
         with open(file_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode('utf-8')
@@ -30,6 +42,13 @@ def read_file_as_base64(file_path):
         return None
 
 def save_file(url, storage_dir='files') -> str:
+    """
+    从 URL 下载文件并保存到指定目录，返回文件的完整路径。
+    
+    :param url: 文件的 URL 地址
+    :param storage_dir: 存储文件的目录名称
+    :return: 文件的完整路径，如果下载失败，则返回空字符串。
+    """
     # 拼接文件夹路径
     storage_path = os.path.join('../', storage_dir)
     # 如果文件夹不存在，则创建
@@ -57,6 +76,11 @@ def save_file(url, storage_dir='files') -> str:
     return file_path
 
 def remove_file(file_path):
+    """
+    删除指定路径的文件。
+
+    :param file_path: 文件路径
+    """
     try:
         os.remove(file_path)
         logger.info("Remove file at: " + file_path)
