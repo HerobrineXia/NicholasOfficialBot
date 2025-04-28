@@ -25,7 +25,7 @@ def generate_help_message(commands: dict[str,CommandData], cmd_prefix:str="") ->
     respond = ""
     for command_data in commands.values():
         respond += f"{list(get_driver().config.command_start)[0]}"
-        prefix = f"{cmd_prefix}{list(get_driver().config.command_sep)[0] if cmd_prefix != "" else ""}{command_data.prefix}"
+        prefix = f"{cmd_prefix}{list(get_driver().config.command_sep)[0] if cmd_prefix != '' else ''}{command_data.prefix}"
         if(len(command_data.aliases) > 0):
             prefix += f"({','.join(command_data.aliases)})"
         respond += prefix
