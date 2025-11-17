@@ -24,9 +24,6 @@ def _load_env_file(path: Path, override: bool = False) -> None:
 
 def _initialize_environment() -> None:
     _load_env_file(PROJECT_ROOT / ".env", override=False)
-    env_name = os.getenv("ENVIRONMENT")
-    if env_name:
-        _load_env_file(PROJECT_ROOT / f".env.{env_name}", override=True)
     _load_env_file(PROJECT_ROOT / ".env.local", override=True)
 
 
