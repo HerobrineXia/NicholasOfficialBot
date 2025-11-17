@@ -28,7 +28,7 @@
 1. **配置集中管理（已完成）**：全局基础设置放在 `src/config/settings.py`，插件配置由各插件自加载（YAML + 可选 env），解耦 Settings。
 2. **职责拆分（已完成）**：util 已拆为 `util/commands.py` 与 `util/file_system.py`，避免 `from util import *`。
 3. **Chat 职责细分（已完成）**：新增 `chat/service.py`，封装客户端初始化、消息预处理、会话与调用流程；handler 只做协议层转发。
-4. **优化 Help 递归**：可重构 generate_help_message，缓存或按需生成，避免每次遍历全量元数据。
+4. **优化 Help 递归（已完成）**：重写 Help 格式化与查找逻辑，避免重复遍历全量元数据，递归输出命令树（见 `plugins/help/command_handler.py`）。
 5. **状态持久化方案**：将会话/用户设置持久化到 Redis/SQLite/文件，支持多实例与重启恢复。
 6. **路径与存储安全**：`file_system.save_file` 建议使用绝对 Path 组装并校验合法目录，避免依赖 chdir 导致的相对路径风险。
 7. **开发者体验**：补充跨平台脚本（如 Makefile/Invoke/Poetry）与 lint/format 任务，降低上手成本。
