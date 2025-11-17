@@ -1,47 +1,48 @@
-from config import DefaultPluginConfig as DConfig
-from pydantic import BaseModel
-from typing import List
-from pydantic.dataclasses import dataclass
+from __future__ import annotations
+
 import dataclasses
+from typing import List
+
+from pydantic import Field
+from pydantic.dataclasses import dataclass
+
+from config.config import DefaultPluginConfig as DConfig
+from config.settings import load_config_section, _load_json_env
+
 
 @dataclass
 class ModelData:
-    """
-    模型数据类，用于定义模型的基本信息。
-
-    Attributes:
-        models (List[str]): 可用模型列表。
-        base_url (str): 基础URL。
-    """
-    models: List[str] = dataclasses.field(default_factory=lambda: [])
-    preset: List[str] = dataclasses.field(default_factory=lambda: [])
+    models: List[str] = dataclasses.field(default_factory=list)
+    preset: List[str] = dataclasses.field(default_factory=list)
     base_url: str = ""
-    max_input_tokens: List[int] = dataclasses.field(default_factory=lambda: [])
-    max_output_tokens: List[int] = dataclasses.field(default_factory=lambda: [])
-    extra: dict[str,str] = dataclasses.field(default_factory=lambda: {})
+    max_input_tokens: List[int] = dataclasses.field(default_factory=list)
+    max_output_tokens: List[int] = dataclasses.field(default_factory=list)
+    extra: dict[str, str] = dataclasses.field(default_factory=dict)
+
 
 @dataclass
 class KeyData:
-    """
-    密钥数据类，用于定义密钥的基本信息。
-
-    Attributes:
-        key (str): 密钥。
-    """
     key: str = ""
 
+
 class ChatConfig(DConfig):
-    """
-    聊天配置类，继承自默认插件配置类。
-    
-    Attributes:
-        model (dict[str, ModelData]): 模型列表，键为模型名称，值为ModelData对象。
-        key (dict[str, KeyData]): 密钥列表，键为密钥名称，值为KeyData对象。
-        preset (str): 预设配置。
-    """
-    model: dict[str, ModelData] = {}
-    key: dict[str, KeyData] = {}
+    model: dict[str, ModelData] = Field(default_factory=dict)
+    key: dict[str, KeyData] = Field(default_factory=dict)
     default_model: str = ""
 
-class Config(BaseModel):
-    chat: ChatConfig
+
+def get_config() -> ChatConfig:
+    """Load chat plugin config, isolated from the global settings model."""
+    payload = load_config_section("chat") or {}
+    config = ChatConfig(**payload) if isinstance(payload, dict) else ChatConfig()
+
+    # Env-based overrides (only for model/key).
+    if env_models := _load_json_env("CHAT__MODEL"):
+        config.model = {name: ModelData(**p) for name, p in env_models.items()}
+    if env_keys := _load_json_env("CHAT__KEY"):
+        config.key = {name: KeyData(**p) for name, p in env_keys.items()}
+
+    return config
+
+
+__all__ = ["ChatConfig", "ModelData", "KeyData", "get_config"]

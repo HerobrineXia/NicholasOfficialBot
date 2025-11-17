@@ -1,5 +1,10 @@
-from pydantic import BaseModel
-from config import DefaultPluginConfig as DConfig
+from config.config import DefaultPluginConfig
+from config.settings import load_config_section
 
-class Config(BaseModel):
-    help: DConfig
+
+def get_config() -> DefaultPluginConfig:
+    payload = load_config_section("help") or {}
+    return DefaultPluginConfig(**payload) if isinstance(payload, dict) else DefaultPluginConfig()
+
+
+__all__ = ["get_config"]

@@ -132,3 +132,6 @@ dmypy.json
 config.yaml
 .vscode
 *.code-workspace
+
+# .env
+.env

@@ -1,8 +1,6 @@
-from .config import Config
 from util import get_command
 from nonebot.adapters import Message, Event
 from nonebot.params import CommandArg
-from nonebot import get_plugin_config
 from nonebot.internal.matcher import Matcher
 from .chat import ConversationManager, Messages
 from .AI import ClientManager, DeepSeekClient, AIClientProtocol, new_chat, chat_completion, get_message_token
@@ -10,9 +8,10 @@ from nonebot import logger
 from util import file_system as fs
 from typing import List
 from openai.types.chat import ChatCompletionContentPartParam 
+from .config import get_config
 
-# Get the plugin config
-plugin_config = get_plugin_config(Config).chat
+# Get the plugin config (plugin-local loader to allow dynamic removal)
+plugin_config = get_config()
 command_list: dict[str, type[Matcher]] = get_command(plugin_config.commands)
 
 

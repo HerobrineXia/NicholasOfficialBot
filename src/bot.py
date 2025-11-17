@@ -1,6 +1,6 @@
 import nonebot
 from nonebot.adapters.onebot import V12Adapter as NoneBotAdapter # type: ignore
-from nonebot.adapters.console import Adapter as ConsoleAdapter # type: ignore
+# from nonebot.adapters.console import Adapter as ConsoleAdapter # type: ignore
 from nonebot.adapters.qq import Adapter as QQAdapter # type: ignore
 from pathlib import Path
 from os import chdir

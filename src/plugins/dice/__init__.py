@@ -1,11 +1,11 @@
-from nonebot import get_plugin_config
-
-from .config import Config
 from nonebot.adapters import Bot, Event
 from util import get_metadata
 from nonebot import on, logger
+from .config import get_config
 
-__plugin_meta__ = get_metadata(get_plugin_config(Config).dice)
+# 插件内部加载配置，便于独立移除
+plugin_config = get_config()
+__plugin_meta__ = get_metadata(plugin_config)
 
 test = on()
 @test.handle()

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic.dataclasses import dataclass
 import dataclasses
 from typing import List
@@ -48,4 +48,4 @@ class DefaultPluginConfig(BaseModel):
     name: str = 'Default Name'
     description: str = 'Default Description'
     usage: str = 'Default Usage'
-    commands: dict[str,CommandData] = {}
+    commands: dict[str,CommandData] = Field(default_factory=dict)

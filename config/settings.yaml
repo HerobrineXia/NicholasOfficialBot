@@ -1,0 +1,87 @@
+environment: prod
+host: 0.0.0.0
+port: 8080
+command_start:
+  - "/"
+command_sep:
+  - "-"
+driver: "~fastapi+~httpx+~websockets"
+qq_is_sandbox: true
+
+chat:
+  name: "Chat"
+  description: "聊天机器人"
+  usage: ""
+  default_model: "deepseek-chat"
+  commands:
+    Chat:
+      prefix: "帮帮忙"
+      description: "与AI聊天"
+      aliases:
+        - "bbm"
+      args:
+        - description: "聊天内容"
+          required: true
+      subcommands:
+        Continue:
+          prefix: "继续"
+          description: "继续上次的对话"
+          aliases:
+            - "c"
+          args:
+            - description: "聊天内容"
+              required: true
+        Model:
+          prefix: "更改模型"
+          description: "修改默认使用的模型"
+          aliases:
+            - "m"
+          args:
+            - description: "模型名称"
+              required: true
+        Preset:
+          prefix: "更改预设"
+          description: "修改默认的预设"
+          aliases:
+            - "p"
+          args:
+            - description: "预设消息"
+              required: true
+  model:
+    DeepSeek:
+      models:
+        - "deepseek-chat"
+        - "deepseek-reasoner"
+      preset:
+        - "你是一个AI助手，帮助用户解决问题"
+        - "你是一个AI助手，帮助用户进行推理"
+      base_url: "https://api.deepseek.com"
+      extra:
+        tokenizer_dir: "./external/deepseek"
+      max_input_tokens:
+        - 16384
+        - 16384
+      max_output_tokens:
+        - 4096
+        - 4096
+  key: {}
+
+help:
+  name: "Help"
+  description: "查看帮助"
+  usage: "/help [命令/命令缩写/插件名称] 来查看指定插件的帮助"
+  commands:
+    Help:
+      prefix: "help"
+      description: "查看命令的帮助,不输入命令则查看命令列表"
+      aliases:
+        - "h"
+      args:
+        - description: "命令/命令缩写/插件名称"
+          required: false
+
+dice:
+  name: "Dice"
+  description: "DND骰子"
+  usage: ""
+  commands: {}

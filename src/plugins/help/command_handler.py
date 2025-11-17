@@ -1,17 +1,17 @@
 
 from typing import Iterable
 from config.config import CommandData
-from .config import Config
 from util import get_command
 from nonebot import get_driver, logger
 from nonebot.adapters import Message
 from nonebot.params import CommandArg
-from nonebot.plugin import get_plugin_config, get_loaded_plugins, Plugin
+from nonebot.plugin import get_loaded_plugins, Plugin
 from nonebot.plugin.model import PluginMetadata
 from nonebot.internal.matcher import Matcher
+from .config import get_config
 
-# 获取help插件配置
-plugin_config = get_plugin_config(Config).help
+# 获取help插件配置（插件内自加载，方便移除）
+plugin_config = get_config()
 command_list: dict[str, type[Matcher]] = get_command(plugin_config.commands)
 
 def generate_help_message(commands: dict[str,CommandData], cmd_prefix:str="") -> str:
@@ -33,8 +33,8 @@ def generate_help_message(commands: dict[str,CommandData], cmd_prefix:str="") ->
             for arg in command_data.args:
                 respond += f" {'[' if arg.required == False else '<'}{arg.description}{']' if arg.required == False else '>'}"
         respond += f": {command_data.description}\n"
-    if len(command_data.subcommands) > 0:
-        respond += generate_help_message(command_data.subcommands, prefix)
+        if len(command_data.subcommands) > 0:
+            respond += generate_help_message(command_data.subcommands, prefix)
     return respond
 
 # help指令
