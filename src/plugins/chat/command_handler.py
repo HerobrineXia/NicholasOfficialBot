@@ -1,4 +1,4 @@
-from util import get_command
+from util.commands import get_command
 from nonebot.adapters import Message, Event
 from nonebot.params import CommandArg
 from nonebot.internal.matcher import Matcher

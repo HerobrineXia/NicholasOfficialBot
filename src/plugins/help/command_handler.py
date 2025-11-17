@@ -1,7 +1,7 @@
 
 from typing import Iterable
 from config.config import CommandData
-from util import get_command
+from util.commands import get_command
 from nonebot import get_driver, logger
 from nonebot.adapters import Message
 from nonebot.params import CommandArg

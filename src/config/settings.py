@@ -31,7 +31,7 @@ _initialize_environment()
 
 
 class Settings(BaseSettings):
-    """Central application settings loaded from YAML + .env files."""
+    """应用的基础配置，来自 YAML 和 .env。"""
 
     environment: str = Field(default="prod", alias="ENVIRONMENT")
     host: str = Field(default="0.0.0.0", alias="HOST")
@@ -68,7 +68,7 @@ class Settings(BaseSettings):
 
     @staticmethod
     def yaml_config_settings_source() -> Dict[str, Any]:
-        """Read structured defaults from config/settings.yaml."""
+        """读取 config/settings.yaml 中的结构化默认配置。"""
 
         file_value = os.getenv("SETTINGS_FILE")
         candidate = Path(file_value) if file_value else DEFAULT_SETTINGS_FILE
@@ -81,7 +81,7 @@ class Settings(BaseSettings):
         return data
 
     def model_post_init(self, __context: Any) -> None:
-        # Ensure command delimiters are tuples for downstream consumers.
+        # 保证命令分隔符为 tuple，便于下游使用。
         self.command_start = tuple(self.command_start or ("/",))
         self.command_sep = tuple(self.command_sep or ("-",))
 
@@ -110,7 +110,7 @@ def _load_json_env(env_key: str) -> Dict[str, Any] | None:
 
 
 def load_config_section(section: str) -> Dict[str, Any]:
-    """Return a config section from settings.yaml (empty dict if missing)."""
+    """从 settings.yaml 返回指定章节，不存在则返回空字典。"""
     data = Settings.yaml_config_settings_source()
     return data.get(section, {}) if isinstance(data, dict) else {}
 
