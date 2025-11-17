@@ -119,6 +119,12 @@ def get_presets(scope: str, group_id: str, user_id: str) -> Dict[str, str]:
         return {model: preset for model, preset in cur.fetchall()}
 
 
+def clear_presets_for_user(user_id: str) -> None:
+    """清空指定用户的所有预设（包含群内/私聊的用户级配置）。"""
+    with connect(DB_FILE) as conn:
+        conn.execute("DELETE FROM chat_user_presets WHERE user_id=?", (user_id,))
+
+
 def create_conversation(scope: str, group_id: str, user_id: str, model: str, max_tokens: int) -> int:
     with connect(DB_FILE) as conn:
         cur = conn.execute(

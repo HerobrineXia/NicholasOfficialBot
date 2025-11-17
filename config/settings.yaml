@@ -15,7 +15,7 @@ chat:
   default_model: "deepseek-chat"
   commands:
     Chat:
-      prefix: "帮帮忙"
+      prefix: "帮帮我"
       description: "与AI聊天"
       aliases:
         - "bbm"
@@ -47,14 +47,24 @@ chat:
           args:
             - description: "预设消息"
               required: true
+        Info:
+          prefix: "查看配置"
+          description: "显示当前模型与预设"
+          aliases:
+            - "i"
+        Reset:
+          prefix: "重置预设"
+          description: "清空所有预设"
+          aliases:
+            - "r"
   model:
     DeepSeek:
       models:
         - "deepseek-chat"
         - "deepseek-reasoner"
       preset:
-        - "你是一个AI助手，帮助用户解决问题"
-        - "你是一个AI助手，帮助用户进行推理"
+        - "你是一个AI助手，帮助用户解决问题。"
+        - "你是一个AI助手，帮助用户进行推理。"
       base_url: "https://api.deepseek.com"
       extra:
         tokenizer_dir: "./external/deepseek"
@@ -73,7 +83,7 @@ help:
   commands:
     Help:
       prefix: "help"
-      description: "查看命令的帮助,不输入命令则查看命令列表"
+      description: "查看命令的帮助，不输入命令则查看命令列表"
       aliases:
         - "h"
       args:

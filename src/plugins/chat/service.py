@@ -186,3 +186,16 @@ class ChatService:
         model = self._resolve_model(scope, group_id, user_id)
         store.upsert_preset(scope, group_id, user_id, model, preset)
         return f"修改 {model} 的默认系统消息为 {preset}"
+
+    def get_status(self, event: Event, user_id: str) -> str:
+        """查看当前使用的模型和预设（不展示群号）。"""
+        scope, group_id = self._scope_from_event(event)
+        model = self._resolve_model(scope, group_id, user_id)
+        preset = self._resolve_preset(model, scope, group_id, user_id) or "（未设置，使用默认）"
+        location = "群聊" if group_id else "私聊"
+        return f"{location} 当前模型：{model}\n当前预设：{preset}"
+
+    def reset_presets(self, user_id: str) -> str:
+        """清空该用户的所有预设（群/私聊）。"""
+        store.clear_presets_for_user(user_id)
+        return "已清空你的所有预设"
