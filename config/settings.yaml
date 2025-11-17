@@ -114,5 +114,34 @@ help:
 dice:
   name: "Dice"
   description: "DND骰子"
-  usage: ""
-  commands: {}
+  usage: "/r [公式] 掷骰；/r-f <骰面> 设置默认骰面；/r-nn <昵称> 设置昵称"
+  default_sides: 20
+  max_sides: 100
+  max_repeat: 20
+  max_count_per_term: 20
+  commands:
+    Dice:
+      prefix: "roll"
+      description: "掷骰子，支持公式/重复/优势劣势"
+      aliases:
+        - "r"
+      args:
+        - description: "掷骰公式"
+          required: false
+      subcommands:
+        SetDefault:
+          prefix: "face"
+          description: "设置默认骰面"
+          aliases:
+            - "f"
+          args:
+            - description: "默认骰面(1-100)"
+              required: true
+        Nickname:
+          prefix: "nickname"
+          description: "设置/清空昵称"
+          aliases:
+            - "nn"
+          args:
+            - description: "昵称(留空清除)"
+              required: false
