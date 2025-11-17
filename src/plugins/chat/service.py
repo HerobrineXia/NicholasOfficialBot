@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Tuple
 
 from nonebot import logger
@@ -10,12 +11,14 @@ from .AI import (
     AIClientProtocol,
     ClientManager,
     DeepSeekClient,
+    ChatGPTClient,
     chat_completion,
     get_message_token,
 )
 from .chat import Messages
 from .config import ChatConfig
 from . import store
+from util import file_system
 
 
 def _to_dict(message: Any) -> Dict[str, Any]:
@@ -34,6 +37,14 @@ class ChatService:
         store.init_tables()
         self.client_manager = ClientManager()
         self._init_clients()
+        self._history_cache: dict[str, list[str]] = {}
+        # 过滤 http/https 及裸域名链接，避免 QQ 拦截
+        self._url_pattern = re.compile(r"(https?://\S+|\b[\w.-]+\.[a-zA-Z]{2,}\S*)")
+
+    def _sanitize_response(self, text: str | None) -> str:
+        if not text:
+            return ""
+        return self._url_pattern.sub("[链接已移除]", text)
 
     def _init_clients(self) -> None:
         for name, data in self.config.model.items():
@@ -53,20 +64,53 @@ class ChatService:
                     )
                     client.init_tokenizer(data.extra.get("tokenizer_dir", ""))
                     self.client_manager.add_client(name, client)
+                case "ChatGPT":
+                    client = ChatGPTClient(
+                        data.models,
+                        data.preset,
+                        data.max_input_tokens,
+                        data.max_output_tokens,
+                        key.key,
+                        data.base_url,
+                    )
+                    self.client_manager.add_client(name, client)
                 case _:
                     logger.warning(f"模型 {name} 不支持，无法使用")
 
-    def _process_message(self, args: Message) -> List[ChatCompletionContentPartParam]:
-        """将 NoneBot Message 转为 ChatCompletionContentPartParam 列表。"""
-        message: List[ChatCompletionContentPartParam] = []
+    def _process_message(self, args: Message, model: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """
+        返回 (store_parts, send_parts)
+        store_parts：完整记录（包含图片的本地 file:// 路径）
+        send_parts：根据模型能力裁剪后发送给模型的内容，gpt-5.* 使用 data:URL 传图，其它模型用文本占位
+        """
+        store_parts: List[Dict[str, Any]] = []
+        send_parts: List[Dict[str, Any]] = []
+        support_image = model.startswith("gpt-5")
+        text_type = "input_text" if support_image else "text"
         for msg_segment in args:
             match msg_segment.type:
                 case "image":
-                    # TODO: 支持图片消息
-                    _ = msg_segment.data.get("url")
+                    url = msg_segment.data.get("url")
+                    if not url:
+                        continue
+                    local_path = file_system.save_file(url, storage_dir=file_system.PROJECT_ROOT / "data" / "temp_img")
+                    if not local_path:
+                        continue
+                    store_parts.append({"type": "image_url", "image_url": {"url": f"file://{local_path}"}})
+                    if support_image:
+                        b64 = file_system.read_file_as_base64(local_path)
+                        if b64:
+                            send_parts.append({"type": "input_image", "image_url": f"data:image/jpeg;base64,{b64}"})
+                        else:
+                            send_parts.append({"type": "text", "text": "[image:load failed]"})
+                    else:
+                        send_parts.append({"type": "text", "text": f"[image:{local_path}]"})
                 case "text":
-                    message.append({"type": "text", "text": msg_segment.data.get("text")})
-        return message
+                    text = msg_segment.data.get("text")
+                    if text:
+                        store_parts.append({"type": "text", "text": text})
+                        send_parts.append({"type": text_type, "text": text})
+        return store_parts, send_parts
 
     def _scope_from_event(self, event: Event) -> Tuple[str, str]:
         group_id = ""
@@ -123,7 +167,7 @@ class ChatService:
 
         preset = self._resolve_preset(model, scope, group_id, user_id)
         max_tokens = self._max_tokens_for_model(model)
-        conv_id = store.create_conversation(scope, group_id, user_id, model, max_tokens)
+        conv_sid, conv_id = store.create_conversation(scope, group_id, user_id, model, max_tokens)
         store.trim_conversations(scope, group_id, user_id, keep=3)
 
         messages: List[Dict[str, Any]] = []
@@ -132,14 +176,14 @@ class ChatService:
             messages.append({"role": system_msg.get("role", "system"), "content": system_msg.get("content")})
             store.append_message(conv_id, "system", system_msg.get("content"), client.get_token(preset))
 
-        rich_message = self._process_message(args)
-        user_msg_obj = Messages.user_message(content=rich_message, name=user_id)
+        store_parts, send_parts = self._process_message(args, model)
+        user_msg_obj = Messages.user_message(content=send_parts, name=user_id)
         user_msg = _to_dict(user_msg_obj)
         messages.append({"role": user_msg.get("role", "user"), "content": user_msg.get("content")})
-        store.append_message(conv_id, "user", user_msg.get("content"), get_message_token(client, user_msg_obj))
+        store.append_message(conv_id, "user", store_parts, get_message_token(client, user_msg_obj))
 
         result = chat_completion(client, messages, model)
-        respond = result.choices[0].message.content
+        respond = self._sanitize_response(result.choices[0].message.content)
         token = result.usage.completion_tokens if result.usage is not None else 0
         if respond is None:
             raise ValueError("模型返回空消息")
@@ -159,14 +203,14 @@ class ChatService:
 
         messages = [{"role": m["role"], "content": m["content"]} for m in conv["messages"]]
 
-        rich_message = self._process_message(args)
-        user_msg_obj = Messages.user_message(content=rich_message, name=user_id)
+        store_parts, send_parts = self._process_message(args, model)
+        user_msg_obj = Messages.user_message(content=send_parts, name=user_id)
         user_msg = _to_dict(user_msg_obj)
         messages.append({"role": user_msg.get("role", "user"), "content": user_msg.get("content")})
-        store.append_message(conv["id"], "user", user_msg.get("content"), get_message_token(client, user_msg_obj))
+        store.append_message(conv["id"], "user", store_parts, get_message_token(client, user_msg_obj))
 
         result = chat_completion(client, messages, model)
-        respond = result.choices[0].message.content
+        respond = self._sanitize_response(result.choices[0].message.content)
         token = result.usage.completion_tokens if result.usage is not None else 0
         if respond is None:
             raise ValueError("模型返回空消息")
@@ -194,6 +238,91 @@ class ChatService:
         preset = self._resolve_preset(model, scope, group_id, user_id) or "（未设置，使用默认）"
         location = "群聊" if group_id else "私聊"
         return f"{location} 当前模型：{model}\n当前预设：{preset}"
+
+    def list_conversations(self, event: Event, user_id: str) -> str:
+        scope, group_id = self._scope_from_event(event)
+        conversations = store.list_conversations(scope, group_id, user_id)
+        if not conversations:
+            return "没有历史会话"
+        lines: list[str] = []
+        for conv in conversations:
+            conv_meta = store.get_conversation_by_short_id(conv["short_id"], user_id)
+            if not conv_meta:
+                continue
+            msgs = store.get_conversation_messages(conv_meta["id"])
+            title = ""
+            for msg in msgs:
+                if msg["role"] == "user":
+                    content = msg["content"]
+                    if isinstance(content, list):
+                        parts = [c.get("text", "") for c in content if isinstance(c, dict)]
+                        title = "".join(parts)
+                    elif isinstance(content, str):
+                        title = content
+                    title = title.strip()
+                    break
+            if not title:
+                title = "(无标题)"
+            if len(title.encode("utf-8")) > 60:
+                # 60 字节截断
+                truncated = ""
+                total = 0
+                for ch in title:
+                    b = len(ch.encode("utf-8"))
+                    if total + b > 60:
+                        break
+                    truncated += ch
+                    total += b
+                title = truncated + "..."
+            lines.append(f"{conv['short_id']}:{title}")
+        return "\n".join(lines)
+
+    def get_conversation_chunks(self, event: Event, user_id: str, conv_sid: str, chunker) -> str | None:
+        """返回该会话的第一段文本，并缓存剩余分段，供后续继续查看。仅允许该用户自己的会话。"""
+        conv_meta = store.get_conversation_by_short_id(conv_sid, user_id)
+        if not conv_meta:
+            return None
+        messages = store.get_conversation_messages(conv_meta["id"])
+        if not messages:
+            return None
+        text_parts: list[str] = []
+        for msg in messages:
+            role = msg["role"]
+            content = msg["content"]
+            if isinstance(content, list):
+                text = "".join([c.get("text", "") for c in content if isinstance(c, dict)])
+            else:
+                text = str(content)
+            text_parts.append(f"{role}: {text}")
+        full_text = "\n".join(text_parts)
+        chunks = chunker(full_text)
+        if not chunks:
+            return None
+        if len(chunks) > 1:
+            self._history_cache[user_id] = [conv_sid] + chunks[1:]
+        return chunks[0]
+
+    def get_conversation_next_chunk(self, user_id: str) -> str | None:
+        cache = self._history_cache.get(user_id, [])
+        if not cache:
+            return None
+        # cache[0] 是 sid，之后是剩余 chunk
+        if len(cache) <= 1:
+            self._history_cache.pop(user_id, None)
+            return None
+        rest = cache[1:]
+        if not rest:
+            return None
+        chunk = rest.pop(0)
+        if rest:
+            self._history_cache[user_id] = [cache[0]] + rest
+        else:
+            self._history_cache.pop(user_id, None)
+        return chunk
+
+    def has_more_history(self, user_id: str) -> bool:
+        cache = self._history_cache.get(user_id, [])
+        return len(cache) > 1
 
     def reset_presets(self, user_id: str) -> str:
         """清空该用户的所有预设（群/私聊）。"""

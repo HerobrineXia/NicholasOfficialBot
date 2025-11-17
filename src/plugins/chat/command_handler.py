@@ -4,6 +4,7 @@ from nonebot.internal.matcher import Matcher
 from nonebot import logger
 
 from util.commands import get_command
+from util import send_text_in_chunks, chunk_text_by_bytes
 from .config import get_config
 from .service import ChatService
 
@@ -26,7 +27,7 @@ async def _(event: Event, args: Message = CommandArg()):
     except Exception as e:
         logger.error(f"调用模型失败: {e}")
         await chat.finish(f"调用模型失败，请截图此报错给开发者：{e}")
-    await chat.finish(respond)
+    await send_text_in_chunks(chat, respond)
 
 
 # 继续聊天指令
@@ -42,7 +43,7 @@ async def _(event: Event, args: Message = CommandArg()):
         respond = chat_service.continue_chat(event, user_id, args)
     except Exception as e:
         await continue_chat.finish(str(e))
-    await continue_chat.finish(respond)
+    await send_text_in_chunks(continue_chat, respond)
 
 
 model_chat = command_list["Chat.Model"]
@@ -92,4 +93,42 @@ if info_chat:
         """查看当前模型和预设。"""
         user_id = str(event.get_user_id())
         respond = chat_service.get_status(event, user_id)
-        await info_chat.finish(respond)
+        await send_text_in_chunks(info_chat, respond)
+
+list_chat = command_list.get("Chat.List")
+if list_chat:
+    @list_chat.handle()
+    async def _(event: Event, args: Message = CommandArg()):
+        """查看历史会话列表或具体会话。"""
+        user_id = str(event.get_user_id())
+        arg = args.extract_plain_text().strip()
+        if not arg:
+            respond = chat_service.list_conversations(event, user_id)
+            await send_text_in_chunks(list_chat, respond)
+        else:
+            conv_sid = arg.strip()
+            if not conv_sid:
+                await list_chat.finish("会话编号不能为空")
+            first = chat_service.get_conversation_chunks(event, user_id, conv_sid, chunk_text_by_bytes)
+            if first is None:
+                await list_chat.finish("未找到该会话或无内容")
+            if chat_service.has_more_history(user_id):
+                await list_chat.send(first)
+                await list_chat.finish("已显示第一段，使用 /bbm-lc 查看下一段")
+            else:
+                await list_chat.finish(first)
+
+list_continue_chat = command_list.get("Chat.ListContinue")
+if list_continue_chat:
+    @list_continue_chat.handle()
+    async def _(event: Event):
+        """继续查看上一段会话内容。"""
+        user_id = str(event.get_user_id())
+        next_chunk = chat_service.get_conversation_next_chunk(user_id)
+        if not next_chunk:
+            await list_continue_chat.finish("没有更多内容")
+        if chat_service._history_cache.get(user_id):
+            await list_continue_chat.send(next_chunk)
+            await list_continue_chat.finish("使用 /bbm-lc 继续")
+        else:
+            await list_continue_chat.finish(next_chunk)

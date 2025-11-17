@@ -1,7 +1,8 @@
+from types import SimpleNamespace
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletion
 from typing import Protocol, List, runtime_checkable
-from transformers import AutoTokenizer # type: ignore
+from transformers import AutoTokenizer  # type: ignore
 
 from .chat import Conversation, Messages
 
@@ -95,6 +96,56 @@ class DeepSeekClient(AIClient):
             raise ValueError("Tokenizer未初始化，请先调用init_tokenizer方法。")
         result = self.tokenizer.encode(message)
         return len(result)
+
+
+class ChatGPTClient(AIClient):
+    """OpenAI ChatGPT 客户端，支持 GPT 系列模型。"""
+
+    def new_chat(self, model: str, preset: str = "") -> Conversation:
+        if model not in self.models:
+            raise ValueError(f"模型 {model} 不在可用模型列表中")
+        conversation = Conversation(model, self.max_input_tokens[self.models.index(model)])
+        preset_text = self.preset[self.models.index(model)] if preset == "" else preset
+        conversation.set_preset(Messages.system_message(preset_text), self.get_token(preset_text))
+        return conversation
+
+    def chat_completion(self, messages: List[ChatCompletionMessageParam], model: str) -> ChatCompletion:
+        if model not in self.models:
+            raise ValueError(f"模型 {model} 不在可用模型列表中")
+        idx = self.models.index(model)
+        # 新版 gpt-5.* 走 responses 接口，支持 web_search；否则走 chat 接口
+        if model.startswith("gpt-5"):
+            resp = self.client.responses.create(
+                model=model,
+                input=messages,
+                max_output_tokens=self.max_output_tokens[idx],
+                tools=[{"type": "web_search"}],
+            )
+            # 统一返回结构到 ChatCompletion 风格
+            content = getattr(resp, "output_text", None)
+            if not content and getattr(resp, "output", None):
+                try:
+                    first = resp.output[0]
+                    content = first.get("content", [{}])[0].get("text")
+                except Exception:
+                    content = ""
+            message_ns = SimpleNamespace(content=content or "")
+            choice_ns = SimpleNamespace(message=message_ns)
+            usage = getattr(resp, "usage", None)
+            completion_tokens = getattr(usage, "output_tokens", 0) if usage else 0
+            usage_ns = SimpleNamespace(completion_tokens=completion_tokens)
+            return SimpleNamespace(choices=[choice_ns], usage=usage_ns)
+        else:
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=self.max_output_tokens[idx],
+            )
+            return response
+
+    def get_token(self, message: str) -> int:
+        # 简单按 UTF-8 字节长度近似计算
+        return len(message.encode("utf-8"))
 
 class ClientManager:
     """

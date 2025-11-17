@@ -12,7 +12,7 @@ chat:
   name: "Chat"
   description: "聊天机器人"
   usage: ""
-  default_model: "deepseek-chat"
+  default_model: "gpt-5.1"
   commands:
     Chat:
       prefix: "帮帮我"
@@ -52,6 +52,16 @@ chat:
           description: "显示当前模型与预设"
           aliases:
             - "i"
+        List:
+          prefix: "查看历史"
+          description: "列出保存的会话编号与标题"
+          aliases:
+            - "l"
+        ListContinue:
+          prefix: "继续查看"
+          description: "继续查看上一条会话内容"
+          aliases:
+            - "lc"
         Reset:
           prefix: "重置预设"
           description: "清空所有预设"
@@ -73,6 +83,17 @@ chat:
         - 16384
       max_output_tokens:
         - 4096
+        - 4096
+    ChatGPT:
+      models:
+        - "gpt-5.1"
+      preset:
+        - "你是一个有用的助手，善于总结和回答问题。"
+      base_url: "https://api.openai.com/v1"
+      extra: {}
+      max_input_tokens:
+        - 128000
+      max_output_tokens:
         - 4096
   key: {}
 
