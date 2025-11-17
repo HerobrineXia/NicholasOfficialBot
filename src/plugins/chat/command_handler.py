@@ -20,7 +20,7 @@ chat = command_list["Chat"]
 async def _(event: Event, args: Message = CommandArg()):
     user_id = str(event.get_user_id())
     try:
-        respond = chat_service.start_chat(user_id, args)
+        respond = chat_service.start_chat(event, user_id, args)
     except Exception as e:
         logger.error(f"调用模型失败: {e}")
         await chat.finish(f"调用模型失败，请截图此报错给开发者：{e}")
@@ -35,7 +35,7 @@ continue_chat = command_list["Chat.Continue"]
 async def _(event: Event, args: Message = CommandArg()):
     user_id = str(event.get_user_id())
     try:
-        respond = chat_service.continue_chat(user_id, args)
+        respond = chat_service.continue_chat(event, user_id, args)
     except Exception as e:
         await continue_chat.finish(str(e))
     await continue_chat.finish(respond)
@@ -50,7 +50,7 @@ async def _(event: Event, args: Message = CommandArg()):
     user_id = str(event.get_user_id())
     model = args.extract_plain_text().strip()
     try:
-        respond = chat_service.set_model(user_id, model)
+        respond = chat_service.set_model(event, user_id, model)
     except Exception as e:
         await model_chat.finish(str(e))
     await model_chat.finish(respond)
@@ -64,5 +64,5 @@ async def _(event: Event, args: Message = CommandArg()):
     """设置模型预设指令。"""
     user_id = str(event.get_user_id())
     preset = args.extract_plain_text().strip()
-    respond = chat_service.set_preset(user_id, preset)
+    respond = chat_service.set_preset(event, user_id, preset)
     await preset_chat.finish(respond)

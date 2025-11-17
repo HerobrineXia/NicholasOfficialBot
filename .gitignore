@@ -135,3 +135,6 @@ config.yaml
 
 # .env
 .env
+
+# data
+data/
