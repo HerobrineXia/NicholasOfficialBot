@@ -1,4 +1,4 @@
-from typing import Iterable
+from __future__ import annotations
 
 from config.config import CommandData
 from util.commands import get_command
@@ -11,7 +11,7 @@ from nonebot.internal.matcher import Matcher
 
 from .config import get_config
 
-# 获取help插件配置（插件内自加载，方便移除）
+# 获取 help 插件配置
 plugin_config = get_config()
 command_list: dict[str, type[Matcher]] = get_command(plugin_config.commands)
 
@@ -56,10 +56,12 @@ def find_plugin_help(keyword: str) -> str | None:
             or keyword in [cmd.prefix.lower() for cmd in cmds.values()]
             or keyword in [alias.lower() for cmd in cmds.values() for alias in cmd.aliases]
         ):
-            detail = f"{meta.name}:{meta.description}\n{meta.usage}\n"
-            detail += "使用方法(含缩写):\n"
-            detail += _format_commands_tree(cmds)
-            return detail
+            lines = [f"{meta.name}: {meta.description}"]
+            if meta.usage:
+                lines.append(f"用法: {meta.usage}")
+            lines.append("命令列表(含别名):")
+            lines.append(_format_commands_tree(cmds))
+            return "\n".join(lines)
     return None
 
 

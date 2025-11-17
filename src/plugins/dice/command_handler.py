@@ -12,16 +12,11 @@ from util.commands import get_command
 from .config import get_config, DiceConfig
 from . import store
 
-# 用户默认骰面与昵称
-user_default_sides: dict[str, int] = {}
-user_nickname: dict[str, str] = {}
-
-# 从配置读取默认参数
+# 配置与命令
 plugin_config: DiceConfig = get_config()
 DEFAULT_SIDES = plugin_config.default_sides
 MAX_SIDES = plugin_config.max_sides
 MAX_REPEAT = plugin_config.max_repeat
-MAX_COUNT_PER_TERM = plugin_config.max_count_per_term
 MAX_COUNT_PER_TERM = plugin_config.max_count_per_term
 
 command_list = get_command(plugin_config.commands)
@@ -32,6 +27,17 @@ dice_nick_cmd = command_list.get("Dice.Nickname")
 
 def get_user_id(event: Event) -> str:
     return str(event.get_user_id())
+
+
+def get_scope(event: Event) -> tuple[str, str]:
+    """返回 (scope, group_id)。scope 为 direct/group。"""
+    group_id = ""
+    if hasattr(event, "group_id"):
+        group_id = str(getattr(event, "group_id"))
+    elif hasattr(event, "detail_type") and getattr(event, "detail_type") == "group":
+        group_id = str(getattr(event, "group_id", ""))
+    scope = "group" if group_id else "direct"
+    return scope, group_id
 
 
 def parse_repeat(expr: str) -> tuple[int, str]:
@@ -123,13 +129,14 @@ if dice_cmd:
     async def _(event: Event, args: Message = CommandArg()):
         user_id = get_user_id(event)
         store.init_tables()
+        scope, group_id = get_scope(event)
         text = args.extract_plain_text().strip()
         if not text:
             text = "d"  # 默认掷一次默认骰面
         text = text.lower()
 
-        default_sides = store.get_default_sides(user_id) or DEFAULT_SIDES
-        nickname = store.get_nickname(user_id)
+        default_sides = store.get_default_sides(scope, group_id, user_id) or DEFAULT_SIDES
+        nickname = store.get_nickname(scope, group_id, user_id)
 
         try:
             repeat, expr = parse_repeat(text)
@@ -158,14 +165,15 @@ if dice_set_cmd:
     async def _(event: Event, args: Message = CommandArg()):
         user_id = get_user_id(event)
         store.init_tables()
-        text = args.extract_plain_text().strip()
+        scope, group_id = get_scope(event)
+        text = args.extract_plain_text().strip().lower()
         try:
             sides = int(text)
         except ValueError:
             await dice_set_cmd.finish("请输入正整数骰面")
         if sides <= 0 or sides > MAX_SIDES:
             await dice_set_cmd.finish(f"骰面需在 1-{MAX_SIDES} 之间")
-        store.set_default_sides(user_id, sides)
+        store.set_default_sides(scope, group_id, user_id, sides)
         await dice_set_cmd.finish(f"已将默认骰面设置为 d{sides}")
 
 
@@ -174,10 +182,11 @@ if dice_nick_cmd:
     async def _(event: Event, args: Message = CommandArg()):
         user_id = get_user_id(event)
         store.init_tables()
+        scope, group_id = get_scope(event)
         nickname = args.extract_plain_text().strip()
         if nickname:
-            store.set_nickname(user_id, nickname)
+            store.set_nickname(scope, group_id, user_id, nickname)
             await dice_nick_cmd.finish(f"已设置昵称为 {nickname}")
         else:
-            store.clear_nickname(user_id)
+            store.clear_nickname(scope, group_id, user_id)
             await dice_nick_cmd.finish("已清空昵称")
